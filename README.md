@@ -1,1 +1,1 @@
-# telegram-bot-canteen-mittweida
+# Telegram Bot for Canteen in Mittweida
