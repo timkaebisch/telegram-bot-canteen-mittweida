@@ -6,7 +6,7 @@ at 10am every day.
 The bot fetches the menu from the official menu api at 1am
 every weekday. The menu is broadcasted to every registered
 user at 10am. This is done by storing the chatID of a user
-upon executing the command /start (see line 63).
+upon executing the command /start.
 
 The user can also request the menu manually by sending
 the command /menu. 
@@ -19,27 +19,58 @@ require('dotenv').config()
 const axios = require("axios");
 const { XMLParser } = require('fast-xml-parser');
 const cron = require('node-cron')
+const fs = require('fs')
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
 let ids = [] // registered users
 let menu // menu of the day
 
+/*
+    "CONSTRUCTOR"
+    start bot with ids - can be used for updates 
+    ids are getting saved upon greaceful stop
+*/
+if (process.argv.length > 2) {
+    // read ids.txt and fetch menu
+    if (process.argv[2] == "id") {
+        fs.readFile(
+            './ids.txt',
+            function read(err, data) {
+                if (err) {
+                    console.log(err)
+                    throw error
+                }
+                ids = data.toString().split('\n').map(Number)
+            }
+        )
+        fetch_menu()
+    } else if (process.argv[2] == "menu") {  
+        // only fetch menu (for intial start)
+        fetch_menu()
+    } else {
+        console.log("unknown argument")
+    }
+}
 
 /*
     CRON JOBS
 */
 
-// fetch menu from api at 1:00am every day (exclude weekend)
-cron.schedule('0 1 * * 1,2,3,4,5', () => {
+/* 
+fetch menu from api at 3:00am every day (exclude weekend)
+(4 for now due to DLS - daylight saving time)
+*/
+cron.schedule('0 4 * * 1,2,3,4,5', () => {
     fetch_menu()
 });
 
 /*
 broadcast the menu to all subscribers (ids) at 10am
 every day (exclude weekend)
+(11 for now due to DLS - daylight saving time)
 */
-cron.schedule('0 10 * * 1,2,3,4,5', () => {
+cron.schedule('0 11 * * 1,2,3,4,5', () => {
     broadcast()
 });
 
@@ -120,8 +151,34 @@ bot.hears('/ende', (ctx) => {
 bot.launch()
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'))
-process.once('SIGTERM', () => bot.stop('SIGTERM'))
+process.once('SIGINT', () => {
+    // write ids to ids.txt
+    fs.writeFile(
+        './ids.txt',
+        ids.toString().replaceAll(",", "\n"),
+        function (err) {
+            if (err) {
+                console.log('error writing ids.txt - log on console instead \n')
+                console.log(ids)
+            }
+        }
+    )
+    bot.stop('SIGINT')
+})
+
+process.once('SIGTERM', () => {
+    fs.writeFile(
+        './ids.txt',
+        ids.toString().replaceAll(",", "\n"),
+        function (err) {
+            if (err) {
+                console.log('error writing ids.txt - log on console instead \n')
+                console.log(ids)
+            }
+        }
+    )
+    bot.stop('SIGTERM')
+})
 
 
 /*
@@ -156,15 +213,25 @@ function fetch_menu() {
                 // add type
                 menu += "*" + dish.type + "* \n"
 
-                // add description
-                // remove useless symbols and additives
+                // add description + remove additives + escape symbols
                 let description = dish.description
-                description.indexOf("(")
                 description = description.substring(0, description.indexOf("(") - 1)
-                description = description.replace(":", "")
-                description = description.replace(".", "\\.") // escape '.' with '\\'
-                menu += description + "\n"
 
+                description = description.replaceAll(":", "")
+                description = description.replaceAll(".", "\\.")
+                description = description.replaceAll("-", "\\-")
+                description = description.replaceAll("&", "\\&")
+                description = description.replaceAll("+", "\\+")
+                description = description.replaceAll("?", "\\?")
+                description = description.replaceAll("|", "\\|")
+                description = description.replaceAll("$", "\\$")
+                description = description.replaceAll("[", "\\[")
+                description = description.replaceAll("]", "\\]")
+                description = description.replaceAll("^", "\\^")
+                description = description.replaceAll("{", "\\{")
+                description = description.replaceAll("}", "\\}")
+
+                menu += description + "\n"
 
                 // add price
                 let prices = dish.prices.price
@@ -175,8 +242,10 @@ function fetch_menu() {
                 price += prices[3].value + "€"
                 menu += price + "\n \n"
             });
+
         })
         .catch((err) => {
+            console.log(err)
             menu = "canteen closed"
         })
 }
