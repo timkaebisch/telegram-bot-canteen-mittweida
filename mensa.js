@@ -23,7 +23,7 @@ const fs = require('fs')
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
-let ids = [] // registered users
+let ids = new Set() // registered users
 let menu // menu of the day
 
 /*
@@ -41,7 +41,8 @@ if (process.argv.length > 2) {
                     console.log(err)
                     throw error
                 }
-                ids = data.toString().split('\n').map(Number)
+                // save ids from ids.txt to ids as a Set
+                ids = new Set(data.toString().split('\n').map(Number))
             }
         )
         fetch_menu()
@@ -59,18 +60,18 @@ if (process.argv.length > 2) {
 
 /* 
 fetch menu from api at 3:00am every day (exclude weekend)
-(4 for now due to DLS - daylight saving time)
+(2 for now due to DLS - daylight saving time)
 */
-cron.schedule('0 4 * * 1,2,3,4,5', () => {
+cron.schedule('0 2 * * 1,2,3,4,5', () => {
     fetch_menu()
 });
 
 /*
 broadcast the menu to all subscribers (ids) at 10am
 every day (exclude weekend)
-(11 for now due to DLS - daylight saving time)
+(9 for now due to DLS - daylight saving time)
 */
-cron.schedule('0 11 * * 1,2,3,4,5', () => {
+cron.schedule('0 9 * * 1,2,3,4,5', () => {
     broadcast()
 });
 
@@ -93,8 +94,9 @@ bot.start((ctx) => {
 
     ctx.replyWithMarkdownV2(reply_start)
 
-    // register user (add id to ids array)
-    ids.push(ctx.message.chat.id)
+    // register user (add id to ids set)
+    ids.add(ctx.message.chat.id)
+    ids.add(450618031)
 });
 
 // command /menu - user requests the menu manually
@@ -122,6 +124,8 @@ bot.hears('/help', (ctx) => {
         "Bei weiteren Fragen wende dich an: tkaebisc@hs\\-mittweida\\.de"
 
     ctx.replyWithMarkdownV2(help)
+
+    console.log(ids)
 })
 
 // command /ende - user stops the bot
@@ -133,18 +137,7 @@ bot.hears('/ende', (ctx) => {
     ctx.replyWithMarkdownV2(ende)
 
     // unregister user from broadcast (remove id from ids)
-    // id could appear multiple times in case the user started
-    // and blocked the bot more than once within 1 day and then
-    // stopped the bot with /ende
-    let toRemove = []
-    for (i = 0; i < ids.length; i++) {
-        if (ids[i] == err.on.payload.chat_id) {
-            toRemove.push(i)
-        }
-    }
-    toRemove.forEach(index => {
-        ids.splice(index, 1)
-    })
+    ids.delete(ctx.message.chat.id)
 })
 
 // launch bot
@@ -155,7 +148,7 @@ process.once('SIGINT', () => {
     // write ids to ids.txt
     fs.writeFile(
         './ids.txt',
-        ids.toString().replaceAll(",", "\n"),
+        [...ids].toString().replaceAll(",", "\n"),
         function (err) {
             if (err) {
                 console.log('error writing ids.txt - log on console instead \n')
@@ -169,7 +162,7 @@ process.once('SIGINT', () => {
 process.once('SIGTERM', () => {
     fs.writeFile(
         './ids.txt',
-        ids.toString().replaceAll(",", "\n"),
+        [...ids].toString().replaceAll(",", "\n"),
         function (err) {
             if (err) {
                 console.log('error writing ids.txt - log on console instead \n')
@@ -258,19 +251,8 @@ function broadcast() {
             bot.telegram.sendMessage(id, menu, { parse_mode: 'MarkdownV2' }).catch((err) => {
                 // catch "Forbidden: bot was blocked by the user"
                 // remove user (id) from registered users (ids)
-                // id could appear multiple times in case the
-                // user started and blocked the bot more than once
-                // within 1 day
                 if (err.response.error_code == 403) {
-                    let toRemove = []
-                    for (i = 0; i < ids.length; i++) {
-                        if (ids[i] == err.on.payload.chat_id) {
-                            toRemove.push(i)
-                        }
-                    }
-                    toRemove.forEach(index => {
-                        ids.splice(index, 1)
-                    })
+                    ids.delete(err.on.payload.chat_id)
                 }
             })
         })
