@@ -96,7 +96,7 @@ bot.start((ctx) => {
 
     // register user (add id to ids set)
     ids.add(ctx.message.chat.id)
-    ids.add(450618031)
+    console.log("New user: " + ctx.message.chat.id)
 });
 
 // command /menu - user requests the menu manually
@@ -124,8 +124,6 @@ bot.hears('/help', (ctx) => {
         "Bei weiteren Fragen wende dich an: tkaebisc@hs\\-mittweida\\.de"
 
     ctx.replyWithMarkdownV2(help)
-
-    console.log(ids)
 })
 
 // command /ende - user stops the bot
