@@ -10,7 +10,7 @@ This project is a telegram bot for the canteen in Mittweida. Telegram users can 
 
 ## Libraries
 
-This project uses the follwing npm packes:
+This project uses the follwing npm packages:
 
 - **telegraf**: Modern Telegram Bot API framework for Node.js (https://www.npmjs.com/package/telegraf)
 - **axios**: Promise based HTTP client for the browser and node.js (https://www.npmjs.com/package/axios)
