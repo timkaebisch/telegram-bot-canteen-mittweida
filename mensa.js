@@ -60,10 +60,12 @@ if (process.argv.length > 2) {
 
 /* 
 fetch menu from api at 3:00am every day (exclude weekend)
+and save IDs to a file (backup)
 (2 for now due to DLS - daylight saving time)
 */
 cron.schedule('0 2 * * 1,2,3,4,5', () => {
     fetch_menu()
+    save_IDs()
 });
 
 /*
@@ -144,30 +146,12 @@ bot.launch()
 // Enable graceful stop
 process.once('SIGINT', () => {
     // write ids to ids.txt
-    fs.writeFile(
-        './ids.txt',
-        [...ids].toString().replaceAll(",", "\n"),
-        function (err) {
-            if (err) {
-                console.log('error writing ids.txt - log on console instead \n')
-                console.log(ids)
-            }
-        }
-    )
+    save_IDs()
     bot.stop('SIGINT')
 })
 
 process.once('SIGTERM', () => {
-    fs.writeFile(
-        './ids.txt',
-        [...ids].toString().replaceAll(",", "\n"),
-        function (err) {
-            if (err) {
-                console.log('error writing ids.txt - log on console instead \n')
-                console.log(ids)
-            }
-        }
-    )
+    save_IDs()
     bot.stop('SIGTERM')
 })
 
@@ -186,7 +170,7 @@ function fetch_menu() {
             menu = ""
             const parser = new XMLParser();
             let obj = parser.parse(res.data)
-            // menus = json array of all dishes
+            // menus: json array of all dishes
             let menus = obj.response.menus.day.menu
 
             // create date of today
@@ -255,4 +239,18 @@ function broadcast() {
             })
         })
     }
+}
+
+// save IDs to a file ./ids.txt
+function save_IDs() {
+    fs.writeFile(
+        './ids.txt',
+        [...ids].toString().replaceAll(",", "\n"),
+        function (err) {
+            if (err) {
+                console.log('error writing ids.txt - log on console instead \n')
+                console.log(ids)
+            }
+        }
+    )
 }
